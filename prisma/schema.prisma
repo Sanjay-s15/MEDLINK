@@ -1,0 +1,127 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ATTENDER
+  ADMIN
+}
+
+enum ClinicStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AppointmentType {
+  ONLINE
+  OFFLINE
+}
+
+enum AppointmentStatus {
+  WAITING
+  IN_CONSULTATION
+  COMPLETED
+  CANCELLED
+}
+
+enum ConsentStatus {
+  PENDING
+  APPROVED
+  DENIED
+  EXPIRED
+}
+
+model User {
+  id            String   @id @default(uuid())
+  mobile_number String   @unique
+  role          Role
+  name          String?
+  aadhaar_hash  String?
+  created_at    DateTime @default(now())
+
+  // Relationships
+  clinic_staff  ClinicStaff?
+  tokens        Token[]
+  prescriptions Prescription[]
+  consents      Consent[]
+}
+
+model Clinic {
+  id         String       @id @default(uuid())
+  name       String
+  address    String
+  latitude   Float
+  longitude  Float
+  status     ClinicStatus @default(PENDING)
+  created_at DateTime     @default(now())
+
+  // Relationships
+  staff  ClinicStaff[]
+  tokens Token[]
+}
+
+model ClinicStaff {
+  id                  String  @id @default(uuid())
+  user_id             String  @unique
+  clinic_id           String
+  specialization      String?
+  registration_number String? @unique
+
+  user         User           @relation(fields: [user_id], references: [id])
+  clinic       Clinic         @relation(fields: [clinic_id], references: [id])
+  tokens       Token[]
+  prescription Prescription[]
+  consents     Consent[]
+}
+
+model Token {
+  id           String            @id @default(uuid())
+  clinic_id    String
+  doctor_id    String?
+  patient_id   String
+  token_number Int
+  type         AppointmentType
+  status       AppointmentStatus @default(WAITING)
+  created_at   DateTime          @default(now())
+
+  clinic       Clinic         @relation(fields: [clinic_id], references: [id])
+  doctor       ClinicStaff?   @relation(fields: [doctor_id], references: [id])
+  patient      User           @relation(fields: [patient_id], references: [id])
+  prescription Prescription[]
+}
+
+model Prescription {
+  id             String   @id @default(uuid())
+  appointment_id String
+  doctor_id      String
+  patient_id     String
+  medications    Json
+  doctor_notes   String?
+  created_at     DateTime @default(now())
+
+  appointment Token       @relation(fields: [appointment_id], references: [id])
+  doctor      ClinicStaff @relation(fields: [doctor_id], references: [id])
+  patient     User        @relation(fields: [patient_id], references: [id])
+}
+
+model Consent {
+  id         String        @id @default(uuid())
+  patient_id String
+  doctor_id  String
+  status     ConsentStatus @default(PENDING)
+  expires_at DateTime?
+  created_at DateTime      @default(now())
+
+  patient User        @relation(fields: [patient_id], references: [id])
+  doctor  ClinicStaff @relation(fields: [doctor_id], references: [id])
+}
